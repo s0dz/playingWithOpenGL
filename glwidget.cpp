@@ -2,6 +2,12 @@
 #include <QMouseEvent>
 #include <QWheelEvent>
 
+#ifdef WIN32
+    #include <GL/glext.h>
+    PFNGLAPPLYTEXTUREEXTPROC pGlActivateTexture = NULL;
+    #define glActiveTexture pGlActivateTexture
+#endif
+
 GlWidget::GlWidget(QWidget *parent)
     :   QGLWidget(QGLFormat(/* Additional format options */), parent)
 {
@@ -21,6 +27,10 @@ QSize GlWidget::sizeHint() const
 
 void GlWidget::initializeGL()
 {
+    #ifdef WIN32
+        glActiveTexture = (PFNGLACTIVETEXTUREPROC) wglGetProcAddress((LPCSTR) "glActiveTexture");
+    #endif
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
@@ -43,18 +53,20 @@ void GlWidget::initializeGL()
              << QVector3D(-0.5, -0.5, -0.5) << QVector3D( 0.5, -0.5, -0.5) << QVector3D( 0.5, -0.5,  0.5) // Bottom
              << QVector3D( 0.5, -0.5,  0.5) << QVector3D(-0.5, -0.5,  0.5) << QVector3D(-0.5, -0.5, -0.5);
 
-    colors << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) // Front
-           << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) << QVector3D(1, 0, 0)
-           << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) // Back
-           << QVector3D(1, 0, 0) << QVector3D(1, 0, 0) << QVector3D(1, 0, 0)
-           << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) // Left
-           << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) << QVector3D(0, 1, 0)
-           << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) // Right
-           << QVector3D(0, 1, 0) << QVector3D(0, 1, 0) << QVector3D(0, 1, 0)
-           << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) // Top
-           << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) << QVector3D(0, 0, 1)
-           << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) // Bottom
-           << QVector3D(0, 0, 1) << QVector3D(0, 0, 1) << QVector3D(0, 0, 1);
+    textureCoordinates << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Front
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0)
+                       << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Back
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0)
+                       << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Left
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0)
+                       << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Right
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0)
+                       << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Top
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0)
+                       << QVector2D(0, 0) << QVector2D(1, 0) << QVector2D(1, 1) // Bottom
+                       << QVector2D(1, 1) << QVector2D(0, 1) << QVector2D(0, 0);
+
+    texture = bindTexture(QPixmap(":/texture.png"));
 }
 
 void GlWidget::resizeGL(int width, int height)
@@ -90,17 +102,23 @@ void GlWidget::paintGL()
 
     shaderProgram.setUniformValue("mvpMatrix", pMatrix * vMatrix * mMatrix);
 
+    shaderProgram.setUniformValue("texture", 0);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glActiveTexture(0);
+
     shaderProgram.setAttributeArray("vertex", vertices.constData());
     shaderProgram.enableAttributeArray("vertex");
 
-    shaderProgram.setAttributeArray("color", colors.constData());
-    shaderProgram.enableAttributeArray("color");
+    shaderProgram.setAttributeArray("textureCoordinate", textureCoordinates.constData());
+    shaderProgram.enableAttributeArray("textureCoordinate");
 
     glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
     shaderProgram.disableAttributeArray("vertex");
 
-    shaderProgram.disableAttributeArray("color");
+    shaderProgram.disableAttributeArray("textureCoordinate");
 
     shaderProgram.release();
 }

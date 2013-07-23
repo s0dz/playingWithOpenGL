@@ -26,7 +26,9 @@ private:
     QMatrix4x4 pMatrix;
     QGLShaderProgram shaderProgram;
     QVector<QVector3D> vertices;
-    QVector<QVector3D> colors;
+
+    QVector<QVector2D> textureCoordinates;
+    GLuint texture;
 
     double alpha;
     double beta;
